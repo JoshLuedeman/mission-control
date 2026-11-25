@@ -21,4 +21,6 @@ Wave 1 scaffold in progress — see #2. Next.js 16 App Router + TypeScript + Tai
 
 **Local-serve on the Mac mini.** Decided via architecture review (#5), ratified on issue #2.
 
-Reasoning: the live data layer shells out to the local CLI/gateway socket (`execSync` calls to `openclaw gateway call ...` / `openclaw sessions --all-agents`) — not network-portable to a separate Synology Docker container as currently architected. Docker becomes viable only after a future refactor to a real network API; not worth bundling into Wave 1.
+Reasoning: the live data layer shells out to the local CLI/gateway socket via Node's `execFile` (async, no shell invocation by default) to the `openclaw` CLI binary — e.g. `openclaw agents list --json`, `openclaw sessions --all-agents --json`, `openclaw automations list --all --json` — not network-portable to a separate Synology Docker container as currently architected. Docker becomes viable only after a future refactor to a real network API; not worth bundling into Wave 1.
+
+See ADR: `docs/decisions/2026-11-25-local-serve-cli-shellout-data-layer.md`.
