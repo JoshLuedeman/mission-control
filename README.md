@@ -15,4 +15,10 @@ All work is tracked as GitHub Issues in this repo, not ad hoc chat threads. See 
 
 ## Status
 
-Fresh start. No app code yet — Zeus is standing up the initial task breakdown.
+Wave 1 scaffold in progress — see #2. Next.js 16 App Router + TypeScript + Tailwind v4 + shadcn/ui (`radix-nova` style) scaffolded, dark-only theme base in place, CI (lint + build) wired via GitHub Actions.
+
+## Deployment Target — RESOLVED
+
+**Local-serve on the Mac mini.** Decided via architecture review (#5), ratified on issue #2.
+
+Reasoning: the live data layer shells out to the local CLI/gateway socket (`execSync` calls to `openclaw gateway call ...` / `openclaw sessions --all-agents`) — not network-portable to a separate Synology Docker container as currently architected. Docker becomes viable only after a future refactor to a real network API; not worth bundling into Wave 1.
