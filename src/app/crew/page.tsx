@@ -27,6 +27,12 @@ const statusColor: Record<CrewMember["status"], string> = {
   unknown: "bg-muted-foreground",
 };
 
+const statusLabel: Record<CrewMember["status"], string> = {
+  online: "online",
+  stale: "stale",
+  unknown: "unknown",
+};
+
 export default function CrewStatusPage() {
   const [state, setState] = useState<
     | { phase: "loading" }
@@ -70,11 +76,17 @@ export default function CrewStatusPage() {
 
       <div className="mt-8">
         {state.phase === "loading" && (
-          <p className="text-sm text-muted-foreground">Loading crew data…</p>
+          <p role="status" aria-live="polite" className="text-sm text-muted-foreground">
+            Loading crew data…
+          </p>
         )}
 
         {state.phase === "error" && (
-          <div className="rounded-lg border border-[var(--color-border-dim)] bg-[var(--color-surface)] p-4 text-sm text-destructive">
+          <div
+            role="alert"
+            aria-live="assertive"
+            className="rounded-lg border border-[var(--color-border-dim)] bg-[var(--color-surface)] p-4 text-sm text-destructive"
+          >
             Crew data is not available right now ({state.message}). This is
             not built with sample data as a fallback — fix the data source
             instead.
@@ -82,7 +94,7 @@ export default function CrewStatusPage() {
         )}
 
         {state.phase === "ready" && state.crew.length === 0 && (
-          <div className="rounded-lg border border-[var(--color-border-dim)] bg-[var(--color-surface)] p-4 text-sm text-muted-foreground">
+          <div role="status" className="rounded-lg border border-[var(--color-border-dim)] bg-[var(--color-surface)] p-4 text-sm text-muted-foreground">
             No agents configured on this host.
           </div>
         )}
@@ -92,21 +104,25 @@ export default function CrewStatusPage() {
             {state.crew.map((member) => (
               <li
                 key={member.id}
-                className="flex items-center justify-between rounded-lg border border-[var(--color-border-dim)] bg-[var(--color-surface)] px-4 py-3"
+                className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg border border-[var(--color-border-dim)] bg-[var(--color-surface)] px-4 py-3"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                   <span
-                    className={`h-2.5 w-2.5 rounded-full ${statusColor[member.status]}`}
-                    aria-label={member.status}
+                    className={`h-2.5 w-2.5 shrink-0 rounded-full ${statusColor[member.status]}`}
+                    role="img"
+                    aria-label={`status: ${statusLabel[member.status]}`}
                   />
                   <span className="text-lg" aria-hidden>
                     {member.emoji ?? "🤖"}
                   </span>
-                  <div>
-                    <div className="font-medium">
-                      {member.name}
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 font-medium">
+                      <span className="truncate">{member.name}</span>
+                      <span className="text-xs font-normal text-muted-foreground">
+                        ({statusLabel[member.status]})
+                      </span>
                       {member.isDefault && (
-                        <span className="ml-2 rounded bg-[var(--color-elevated)] px-1.5 py-0.5 text-xs text-muted-foreground">
+                        <span className="rounded bg-[var(--color-elevated)] px-1.5 py-0.5 text-xs text-muted-foreground">
                           default
                         </span>
                       )}
@@ -116,7 +132,7 @@ export default function CrewStatusPage() {
                     </div>
                   </div>
                 </div>
-                <div className="text-xs text-muted-foreground">
+                <div className="shrink-0 text-xs text-muted-foreground">
                   {formatRelativeTime(member.lastInteractionAt)}
                 </div>
               </li>
