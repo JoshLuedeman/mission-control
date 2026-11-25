@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import type { CronJobSummary } from "@/lib/cron";
 
 interface CronResponse {
@@ -8,6 +9,8 @@ interface CronResponse {
   data?: CronJobSummary[];
   error?: string;
 }
+
+const AUTO_REFRESH_MS = 30_000;
 
 function formatRelativeTime(ms: number | null): string {
   if (ms == null) return "never";
@@ -32,12 +35,37 @@ function formatFutureTime(ms: number | null): string {
   return `in ${hours}h`;
 }
 
+// Dot color drives at-a-glance status. Error red sits at ~4.95:1 contrast
+// against the surface background — just above the 4.5:1 text threshold,
+// reused here for a 3:1-requirement graphic (the dot). That margin is
+// intentionally tight (keeps error/urgent visually distinct from warning-
+// yellow without drifting into a different hue family); if this token
+// changes, re-check contrast before assuming it's still safe.
 const statusColor: Record<CronJobSummary["status"], string> = {
   ok: "bg-[var(--color-status-online)]",
   error: "bg-[var(--color-status-urgent)]",
   skipped: "bg-[var(--color-status-watch)]",
   running: "bg-[var(--color-status-scheduled)] animate-pulse",
+  pending: "bg-muted-foreground/50",
   unknown: "bg-muted-foreground",
+};
+
+// Error and skipped read as similar visual weight at the same dot size —
+// give error a ring so it reads as "more severe" than skipped at a glance,
+// not just a different hue.
+const statusShape: Partial<Record<CronJobSummary["status"], string>> = {
+  error: "ring-2 ring-offset-1 ring-offset-[var(--color-surface)] ring-[var(--color-status-urgent)]",
+};
+
+// error/urgent sorts first for glanceability, then running, then everything
+// else roughly in "needs attention" order, pending/unknown last.
+const statusSortWeight: Record<CronJobSummary["status"], number> = {
+  error: 0,
+  running: 1,
+  skipped: 2,
+  ok: 3,
+  pending: 4,
+  unknown: 5,
 };
 
 export default function CronHealthPage() {
@@ -46,40 +74,89 @@ export default function CronHealthPage() {
     | { phase: "error"; message: string }
     | { phase: "ready"; jobs: CronJobSummary[] }
   >({ phase: "loading" });
+  const [lastFetchedAt, setLastFetchedAt] = useState<number | null>(null);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    fetch("/api/cron")
+  const load = useCallback(() => {
+    return fetch("/api/cron")
       .then((res) => res.json() as Promise<CronResponse>)
       .then((json) => {
-        if (cancelled) return;
         if (!json.ok || !json.data) {
           setState({ phase: "error", message: json.error ?? "Unknown error" });
           return;
         }
         setState({ phase: "ready", jobs: json.data });
+        setLastFetchedAt(Date.now());
       })
       .catch((err: unknown) => {
-        if (cancelled) return;
         setState({
           phase: "error",
           message: err instanceof Error ? err.message : "Request failed",
         });
       });
-
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  useEffect(() => {
+    if (!autoRefresh) {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      return;
+    }
+    intervalRef.current = setInterval(() => {
+      load();
+    }, AUTO_REFRESH_MS);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [autoRefresh, load]);
+
+  const sortedJobs =
+    state.phase === "ready"
+      ? [...state.jobs].sort(
+          (a, b) => statusSortWeight[a.status] - statusSortWeight[b.status],
+        )
+      : [];
 
   return (
     <div className="mx-auto w-full max-w-4xl px-6 py-12">
-      <h1 className="text-2xl font-semibold tracking-tight">Cron Job Health</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Live automations status — reads directly from this host&apos;s
-        OpenClaw gateway RPC (no flat-file cron path on this host).
-      </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Cron Job Health</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Live automations status — reads directly from this host&apos;s
+            OpenClaw gateway RPC (no flat-file cron path on this host).
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => load()}
+              className="rounded-md border border-[var(--color-border-dim)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-medium hover:border-[var(--color-border-bright)]"
+            >
+              Refresh now
+            </button>
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={autoRefresh}
+                onChange={(e) => setAutoRefresh(e.target.checked)}
+                className="h-3.5 w-3.5"
+              />
+              Auto-refresh (30s)
+            </label>
+          </div>
+          {lastFetchedAt && (
+            <span className="text-xs text-muted-foreground">
+              Updated {formatRelativeTime(lastFetchedAt)}
+            </span>
+          )}
+        </div>
+      </div>
 
       <div className="mt-8">
         {state.phase === "loading" && (
@@ -94,49 +171,53 @@ export default function CronHealthPage() {
           </div>
         )}
 
-        {state.phase === "ready" && state.jobs.length === 0 && (
+        {state.phase === "ready" && sortedJobs.length === 0 && (
           <div className="rounded-lg border border-[var(--color-border-dim)] bg-[var(--color-surface)] p-4 text-sm text-muted-foreground">
             No automations configured on this host.
           </div>
         )}
 
-        {state.phase === "ready" && state.jobs.length > 0 && (
+        {state.phase === "ready" && sortedJobs.length > 0 && (
           <ul className="flex flex-col gap-3">
-            {state.jobs.map((job) => (
-              <li
-                key={job.id}
-                className="flex items-center justify-between rounded-lg border border-[var(--color-border-dim)] bg-[var(--color-surface)] px-4 py-3"
-              >
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`h-2.5 w-2.5 rounded-full ${statusColor[job.status]}`}
-                    aria-label={job.status}
-                  />
-                  <div>
-                    <div className="font-medium">
-                      {job.name}
-                      {!job.enabled && (
-                        <span className="ml-2 rounded bg-[var(--color-elevated)] px-1.5 py-0.5 text-xs text-muted-foreground">
-                          disabled
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {job.agentId ?? "unassigned"}
-                      {job.kind ? ` · ${job.kind}` : ""}
-                      {job.consecutiveErrors > 0 && (
-                        <span className="ml-2 text-[var(--color-status-urgent)]">
-                          {job.consecutiveErrors} consecutive error
-                          {job.consecutiveErrors === 1 ? "" : "s"}
-                        </span>
-                      )}
+            {sortedJobs.map((job) => (
+              <li key={job.id}>
+                <Link
+                  href={`/cron/${job.id}`}
+                  className="flex items-center justify-between rounded-lg border border-[var(--color-border-dim)] bg-[var(--color-surface)] px-4 py-3 transition-colors hover:border-[var(--color-border-bright)]"
+                >
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`h-2.5 w-2.5 rounded-full ${statusColor[job.status]} ${
+                        statusShape[job.status] ?? ""
+                      }`}
+                      aria-label={job.status}
+                    />
+                    <div>
+                      <div className="font-medium">
+                        {job.name}
+                        {!job.enabled && (
+                          <span className="ml-2 rounded bg-[var(--color-elevated)] px-1.5 py-0.5 text-xs text-muted-foreground">
+                            disabled
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {job.agentId ?? "unassigned"}
+                        {job.kind ? ` · ${job.kind}` : ""}
+                        {job.consecutiveErrors > 0 && (
+                          <span className="ml-2 text-[var(--color-status-urgent)]">
+                            {job.consecutiveErrors} consecutive error
+                            {job.consecutiveErrors === 1 ? "" : "s"}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="text-right text-xs text-muted-foreground">
-                  <div>last: {formatRelativeTime(job.lastRunAtMs)}</div>
-                  <div>next: {formatFutureTime(job.nextRunAtMs)}</div>
-                </div>
+                  <div className="text-right text-xs text-muted-foreground">
+                    <div>last: {formatRelativeTime(job.lastRunAtMs)}</div>
+                    <div>next: {formatFutureTime(job.nextRunAtMs)}</div>
+                  </div>
+                </Link>
               </li>
             ))}
           </ul>
