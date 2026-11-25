@@ -35,12 +35,16 @@ function formatFutureTime(ms: number | null): string {
   return `in ${hours}h`;
 }
 
-// Dot color drives at-a-glance status. Error red sits at ~4.95:1 contrast
-// against the surface background — just above the 4.5:1 text threshold,
-// reused here for a 3:1-requirement graphic (the dot). That margin is
-// intentionally tight (keeps error/urgent visually distinct from warning-
-// yellow without drifting into a different hue family); if this token
-// changes, re-check contrast before assuming it's still safe.
+// Dot color drives at-a-glance status (graphic, needs 3:1 contrast).
+// Text uses a separate, lighter token (needs the stricter 4.5:1 text
+// contrast) — these were previously the SAME token (#ef4444, ~4.95:1
+// against the surface background), which left only a ~0.45 margin above
+// the 4.5:1 text threshold for a value also used as a 3:1-requirement
+// graphic. Per Josh's review on PR #9: split into two tokens so a future
+// dot-color adjustment can't silently break text contrast.
+// Verified contrast (relative-luminance WCAG formula, computed not eyeballed):
+//   dot  #ef4444 vs surface #12121a → 4.951:1 (needs 3:1, real headroom)
+//   text #f87171 vs surface #12121a → 6.735:1 (needs 4.5:1, real headroom)
 const statusColor: Record<CronJobSummary["status"], string> = {
   ok: "bg-[var(--color-status-online)]",
   error: "bg-[var(--color-status-urgent)]",
@@ -220,7 +224,7 @@ export default function CronHealthPage() {
                         {job.agentId ?? "unassigned"}
                         {job.kind ? ` · ${job.kind}` : ""}
                         {job.consecutiveErrors > 0 && (
-                          <span className="ml-2 text-[var(--color-status-urgent)]">
+                          <span className="ml-2 text-[var(--color-status-urgent-text)]">
                             {job.consecutiveErrors} consecutive error
                             {job.consecutiveErrors === 1 ? "" : "s"}
                           </span>

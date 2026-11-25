@@ -58,6 +58,7 @@
   --color-status-scheduled: #06b6d4;
   --color-status-oneshot: #ec4899;
   --color-status-urgent: #ef4444;
+  --color-status-urgent-text: #f87171;
   --color-status-watch: #eab308;
 }
 
