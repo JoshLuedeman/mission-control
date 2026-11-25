@@ -46,8 +46,22 @@ const statusColor: Record<CronJobSummary["status"], string> = {
   error: "bg-[var(--color-status-urgent)]",
   skipped: "bg-[var(--color-status-watch)]",
   running: "bg-[var(--color-status-scheduled)] animate-pulse",
-  pending: "bg-muted-foreground/50",
+  // pending (never run) is intentionally hollow/dashed rather than a filled
+  // gray at reduced opacity — at 10px, an opacity difference against the
+  // same hue as `unknown` composites to visually indistinguishable (flagged
+  // by Designer review via luminance math). A distinct shape, not just an
+  // alpha change, is what actually separates the two for low-vision users.
+  pending: "bg-transparent border-2 border-dashed border-muted-foreground",
   unknown: "bg-muted-foreground",
+};
+
+const statusLabel: Record<CronJobSummary["status"], string> = {
+  ok: "status: ok",
+  error: "status: error",
+  skipped: "status: skipped",
+  running: "status: running",
+  pending: "status: pending (never run)",
+  unknown: "status: unknown",
 };
 
 // Error and skipped read as similar visual weight at the same dot size —
@@ -190,7 +204,8 @@ export default function CronHealthPage() {
                       className={`h-2.5 w-2.5 rounded-full ${statusColor[job.status]} ${
                         statusShape[job.status] ?? ""
                       }`}
-                      aria-label={job.status}
+                      role="img"
+                      aria-label={statusLabel[job.status]}
                     />
                     <div>
                       <div className="font-medium">

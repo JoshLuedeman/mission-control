@@ -37,8 +37,17 @@ const statusColor: Record<string, string> = {
   error: "bg-[var(--color-status-urgent)]",
   skipped: "bg-[var(--color-status-watch)]",
   running: "bg-[var(--color-status-scheduled)]",
-  pending: "bg-muted-foreground/50",
+  pending: "bg-transparent border-2 border-dashed border-muted-foreground",
   unknown: "bg-muted-foreground",
+};
+
+const statusLabel: Record<string, string> = {
+  ok: "status: ok",
+  error: "status: error",
+  skipped: "status: skipped",
+  running: "status: running",
+  pending: "status: pending (never run)",
+  unknown: "status: unknown",
 };
 
 export default function CronJobDetailClient({ id }: { id: string }) {
@@ -131,7 +140,8 @@ export default function CronJobDetailClient({ id }: { id: string }) {
                       className={`h-2.5 w-2.5 rounded-full ${
                         statusColor[run.status] ?? statusColor.unknown
                       }`}
-                      aria-label={run.status}
+                      role="img"
+                      aria-label={statusLabel[run.status] ?? statusLabel.unknown}
                     />
                     <div className="text-sm">{formatAbsoluteTime(run.runAtMs)}</div>
                   </div>
