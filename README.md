@@ -15,4 +15,13 @@ All work is tracked as GitHub Issues in this repo, not ad hoc chat threads. See 
 
 ## Status
 
-Fresh start. No app code yet — Zeus is standing up the initial task breakdown.
+Wave 1 scaffold in progress — see #2. Next.js 16 App Router + TypeScript + Tailwind v4 + shadcn/ui (`radix-nova` style) scaffolded, dark-only theme base in place, CI (lint + build) wired via GitHub Actions.
+
+## Deployment Target (open — pending Architecture review)
+
+Not yet decided. Candidates on the table, per the Wave 1 scaffold issue (#2):
+
+- **Synology Docker** — matches the original Olympus deployment plan; more infra to stand up, but persistent/always-on and reachable beyond this machine.
+- **Simpler local-only serve** (e.g. `next start` behind a local reverse proxy, or a portal-style dev server) — faster to stand up, no containerization, but scoped to this machine unless/until exposed.
+
+This tradeoff is explicitly **not** being decided unilaterally here — it's being flagged for Athena's architecture review (issue #5) per the epic's anti-pattern guidance. This section will be updated once that review lands.
