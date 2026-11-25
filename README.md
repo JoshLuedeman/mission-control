@@ -17,11 +17,8 @@ All work is tracked as GitHub Issues in this repo, not ad hoc chat threads. See 
 
 Wave 1 scaffold in progress — see #2. Next.js 16 App Router + TypeScript + Tailwind v4 + shadcn/ui (`radix-nova` style) scaffolded, dark-only theme base in place, CI (lint + build) wired via GitHub Actions.
 
-## Deployment Target (open — pending Architecture review)
+## Deployment Target — RESOLVED
 
-Not yet decided. Candidates on the table, per the Wave 1 scaffold issue (#2):
+**Local-serve on the Mac mini.** Decided via architecture review (#5), ratified on issue #2.
 
-- **Synology Docker** — matches the original Olympus deployment plan; more infra to stand up, but persistent/always-on and reachable beyond this machine.
-- **Simpler local-only serve** (e.g. `next start` behind a local reverse proxy, or a portal-style dev server) — faster to stand up, no containerization, but scoped to this machine unless/until exposed.
-
-This tradeoff is explicitly **not** being decided unilaterally here — it's being flagged for Athena's architecture review (issue #5) per the epic's anti-pattern guidance. This section will be updated once that review lands.
+Reasoning: the live data layer shells out to the local CLI/gateway socket (`execSync` calls to `openclaw gateway call ...` / `openclaw sessions --all-agents`) — not network-portable to a separate Synology Docker container as currently architected. Docker becomes viable only after a future refactor to a real network API; not worth bundling into Wave 1.
